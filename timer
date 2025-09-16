@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>مؤقت CrossFit — Pro (PWA-ready)</title>
+  <meta name="theme-color" content="#0b6bf0"/>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#0b6bf0; --muted:#9aa4b2; --glass: rgba(255,255,255,0.03);
+      --success: #2ee6a3; --danger:#ff6b6b;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", "Helvetica Neue", Arial;
+      background: linear-gradient(180deg,#071024 0%, #081827 100%); color:#e6eef8; padding:18px;
+    }
+    .wrap{max-width:1000px; margin:0 auto;}
+    header{display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:14px;}
+    h1{font-size:20px;margin:0}
+    .sub{color:var(--muted); font-size:13px}
+    .grid{display:grid; grid-template-columns: 380px 1fr; gap:16px;}
+    .card{background:var(--card); border-radius:12px; padding:14px; box-shadow: 0 6px 20px rgba(2,6,23,0.6);}
+    label{display:block; font-weight:700; margin:8px 0 6px; font-size:13px; color:#e7f0ff;}
+    select,input[type=number],input[type=text]{width:100%; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background:transparent; color:inherit;}
+    .controls{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+    button{border:0; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:700}
+    .primary{background:linear-gradient(90deg,var(--accent),#19a1ff); color:white;}
+    .danger{background:linear-gradient(90deg,var(--danger),#ff8676); color:white;}
+    .mutedBtn{background:var(--glass); color:var(--muted); border:1px solid rgba(255,255,255,0.03);}
+    .visual{
+      display:flex; gap:18px; align-items:center; justify-content:center; flex-direction:column;
+      padding:22px; text-align:center;
+    }
+    .bigtime{font-size:68px; font-weight:800; letter-spacing:1px;}
+    .phase{color:var(--muted); margin-top:4px; font-weight:700}
+    .barWrap{width:100%; margin-top:12px}
+    .bar{height:10px; background:rgba(255,255,255,0.06); border-radius:8px; overflow:hidden;}
+    .barFill{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),#2dd4ff); transition:width 0.3s linear}
+    /* circular progress */
+    .circle-wrap{width:180px;height:180px; display:inline-block; position:relative}
+    svg{transform:rotate(-90deg)}
+    .circle-center{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column}
+    .small{font-size:13px;color:var(--muted)}
+    ul.log{max-height:180px; overflow:auto; margin:10px 0 0; padding:0; list-style:none}
+    ul.log li{padding:6px 8px; border-bottom:1px dashed rgba(255,255,255,0.02); font-size:13px; color:var(--muted)}
+    .footer{font-size:12px; color:var(--muted); text-align:center; margin-top:10px;}
+    @media(max-width:880px){ .grid{grid-template-columns:1fr; } .circle-wrap{width:140px;height:140px} .bigtime{font-size:48px} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>مؤقت CrossFit — Pro</h1>
+        <div class="sub">أصوات مختلفة • إشعارات • مؤقت بصري • قابلة للتثبيت كتطبيق</div>
+      </div>
+      <div>
+        <button id="installBtn" class="mutedBtn">تثبيت التطبيق</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- left: settings -->
+      <div class="card">
+        <label>نوع التمرين</label>
+        <select id="mode">
+          <option value="for_time">For Time</option>
+          <option value="amrap">AMRAP</option>
+          <option value="emom">EMOM</option>
+          <option value="tabata">Tabata</option>
+          <option value="interval">Interval</option>
+        </select>
+
+        <div id="params"></div>
+
+        <div class="controls">
+          <button id="startBtn" class="primary">ابدأ</button>
+          <button id="stopBtn" class="danger" disabled>أوقف</button>
+          <button id="lapBtn" class="mutedBtn" disabled>لالب / سجل</button>
+          <button id="resetBtn" class="mutedBtn">إعادة</button>
+        </div>
+
+        <div style="margin-top:12px;">
+          <label>أصوات</label>
+          <select id="soundProfile">
+            <option value="classic">كلاسيكي (نغمة واحدة)</option>
+            <option value="electro">إلكتروني — بداية/انتهاء مختلفة</option>
+            <option value="bells">أجراس — لطيف</option>
+            <option value="custom">مخصص (توازن النغمات)</option>
+          </select>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button id="notifyPerm" class="mutedBtn">طلب إذن الإشعارات</button>
+            <button id="muteBtn" class="mutedBtn">كتم: لا</button>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;">
+          <label>سجل الأحداث</label>
+          <ul id="log" class="log"></ul>
+        </div>
+      </div>
+
+      <!-- right: visual -->
+      <div class="card visual">
+        <div class="circle-wrap" id="circleWrap">
+          <svg width="180" height="180" viewBox="0 0 100 100">
+            <defs>
+              <linearGradient id="grad" x1="0" x2="1">
+                <stop offset="0%" stop-color="#0b6bf0"/>
+                <stop offset="100%" stop-color="#19a1ff"/>
+              </linearGradient>
+            </defs>
+            <circle cx="50" cy="50" r="44" stroke="rgba(255,255,255,0.06)" stroke-width="10" fill="none"/>
+            <circle id="progressCircle" cx="50" cy="50" r="44" stroke="url(#grad)" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="276.460" stroke-dashoffset="276.460"></circle>
+          </svg>
+          <div class="circle-center">
+            <div class="bigtime" id="display">00:00</div>
+            <div class="phase" id="phase">جاهز</div>
+            <div class="small" id="subphase"></div>
+          </div>
+        </div>
+
+        <div class="barWrap" style="width:90%">
+          <div class="bar"><div id="barFill" class="barFill" style="width:0%"></div></div>
+        </div>
+
+        <div style="width:90%; display:flex; gap:8px; margin-top:12px; justify-content:space-between;">
+          <div class="small">إجمالي: <span id="totalDisplay">00:00</span></div>
+          <div class="small">الجولات: <span id="roundDisplay">0</span></div>
+        </div>
+
+        <div class="footer">لتثبيت كتطبيق: استخدم زر "تثبيت التطبيق" أو انسخ للموقع وآمنه عبر HTTPS.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- حالة ومساعد ----------
+    const modeEl = document.getElementById('mode');
+    const paramsEl = document.getElementById('params');
+    const display = document.getElementById('display');
+    const phase = document.getElementById('phase');
+    const subphase = document.getElementById('subphase');
+    const barFill = document.getElementById('barFill');
+    const progressCircle = document.getElementById('progressCircle');
+    const totalDisplay = document.getElementById('totalDisplay');
+    const roundDisplay = document.getElementById('roundDisplay');
+    const logEl = document.getElementById('log');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const lapBtn = document.getElementById('lapBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const soundProfile = document.getElementById('soundProfile');
+    const notifyPerm = document.getElementById('notifyPerm');
+    const muteBtn = document.getElementById('muteBtn');
+    const installBtn = document.getElementById('installBtn');
+
+    // WebAudio setup (generate tones)
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+    function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+    function beepTone(freq=440, type='sine', duration=0.18, gain=0.12) {
+      try {
+        ensureAudio();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type; o.frequency.value = freq;
+        g.gain.value = gain;
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start();
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        setTimeout(()=>{ try{ o.stop(); o.disconnect(); g.disconnect(); }catch(e){} }, (duration+0.05)*1000);
+      } catch(e) { console.warn('Audio failed', e); }
+    }
+
+    // sound profiles: set of named events
+    const soundProfiles = {
+      classic: { start: ()=>beepTone(880,'sine',0.16,0.12), tick: ()=>beepTone(880,'sine',0.06,0.06), end: ()=>{ beepTone(660,'sine',0.18,0.16); beepTone(880,'sine',0.12,0.12); } , round: ()=>beepTone(1100,'sine',0.12,0.10) },
+      electro: { start: ()=>{ beepTone(1100,'square',0.14,0.14); beepTone(1600,'sawtooth',0.08,0.08); }, tick: ()=>beepTone(1200,'square',0.05,0.05), end: ()=>{ beepTone(400,'sine',0.25,0.18); beepTone(900,'triangle',0.18,0.12) }, round: ()=>beepTone(1500,'sine',0.14,0.12) },
+      bells: { start: ()=>{ beepTone(880,'triangle',0.18,0.10); beepTone(1320,'sine',0.12,0.08); }, tick: ()=>beepTone(1200,'triangle',0.04,0.04), end: ()=>{ beepTone(880,'triangle',0.22,0.12); beepTone(660,'sine',0.18,0.08); }, round: ()=>beepTone(1500,'sine',0.10,0.08) },
+      custom: { start: ()=>{ beepTone(700,'sawtooth',0.16,0.14)}, tick: ()=>beepTone(700,'sine',0.05,0.05), end: ()=>beepTone(500,'sine',0.22,0.16), round: ()=>beepTone(900,'square',0.12,0.10) }
+    };
+
+    let state = {
+      running:false, intervalId:null, totalSeconds:0, currentSeconds:0,
+      mode:modeEl.value, rounds:0, maxRounds:0, mute:false,
+      emomWork:45, tabata:{work:20,rest:10,rounds:8}, interval:{work:60,rest:30,rounds:5},
+    };
+
+    // helpers
+    function formatTime(s){
+      if (s<0) s=0;
+      const mm = Math.floor(s/60).toString().padStart(2,'0');
+      const ss = Math.floor(s%60).toString().padStart(2,'0');
+      return mm+':'+ss;
+    }
+    function logAdd(text){
+      const li = document.createElement('li');
+      li.textContent = ${new Date().toLocaleTimeString('ar-EG')} — ${text};
+      logEl.prepend(li);
+    }
+
+    // notifications
+    async function requestNotificationPermission(){
+      if (!('Notification' in window)) { alert('الإشعارات غير مدعومة في هذا المتصفح'); return; }
+      const perm = await Notification.requestPermission();
+      logAdd('إذن الإشعارات: ' + perm);
+      return perm;
+    }
+    notifyPerm.addEventListener('click', ()=> requestNotificationPermission());
+
+    function sendNotification(title, body){
+      if (state.mute) return;
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        const opt = { body, icon: 'icon-192.png', vibrate: [100,50,100] };
+        try{ new Notification(title, opt); } catch(e){}
+      }
+    }
+
+    // UI param rendering
+    function renderParams(){
+      const mode = modeEl.value;
+      paramsEl.innerHTML = '';
+      if (mode === 'for_time'){
+        paramsEl.innerHTML = `
+          <label>مدة التمرين بالثواني</label><input id="ft_seconds" type="number" min="5" value="300">
+          <label>راحة بعد نهاية التمرين (ثواني)</label><input id="ft_rest" type="number" min="0" value="0">`;
+      } else if (mode === 'amrap'){
+        paramsEl.innerHTML = `
+          <label>مدة AMRAP (ثواني)</label><input id="amrap_seconds" type="number" min="10" value="600">
+          <label>حد للجولات (0 = لا شيء)</label><input id="amrap_maxrounds" type="number" min="0" value="0">`;
+      } else if (mode === 'emom'){
+        paramsEl.innerHTML = `
+          <label>عدد الدقائق</label><input id="emom_minutes" type="number" min="1" value="10">
+          <label>ثواني العمل داخل الدقيقة</label><input id="emom_work" type="number" min="1" value="${state.emomWork}">`;
+      } else if (mode === 'tabata'){
+        paramsEl.innerHTML = `
+          <label>ثواني العمل</label><input id="tabata_work" type="number" min="5" value="${state.tabata.work}">
+          <label>ثواني الراحة</label><input id="tabata_rest" type="number" min="1" value="${state.tabata.rest}">
+          <label>عدد الجولات</label><input id="tabata_rounds" type="number" min="1" value="${state.tabata.rounds}">`;
+      } else if (mode === 'interval'){
+        paramsEl.innerHTML = `
+          <label>ثواني العمل لكل جولة</label><input id="int_work" type="number" min="5" value="${state.interval.work}">
+          <label>ثواني الراحة بين الجولات</label><input id="int_rest" type="number" min="0" value="${state.interval.rest}">
+          <label>عدد الجولات</label><input id="int_rounds" type="number" min="1" value="${state.interval.rounds}">`;
+      }
+    }
+    modeEl.addEventListener('change', renderParams);
+    renderParams();
+
+    // visual helpers
+    const CIRCUMFERENCE = 2*Math.PI*44; // r=44
+    progressCircle.style.strokeDasharray = CIRCUMFERENCE;
+    function setProgressFraction(frac){
+      frac = Math.max(0, Math.min(1, frac));
+      const offset = CIRCUMFERENCE * (1 - frac);
+      progressCircle.style.strokeDashoffset = offset;
+      barFill.style.width = (frac*100)+'%';
+    }
+
+    // event sounds wrapper
+    function playEvent(name){
+      if (state.mute) return;
+      const prof = soundProfiles[soundProfile.value] || soundProfiles.classic;
+      if (prof && typeof prof[name] === 'function') prof[name]();
+    }
+
+    // start
+    startBtn.addEventListener('click', ()=>{
+      if (state.running) return;
+      state.mode = modeEl.value;
+      state.running = true;
+      startBtn.disabled = true; stopBtn.disabled=false; lapBtn.disabled=false; resetBtn.disabled=true;
+      // init per mode
+      if (state.mode === 'for_time'){
+        const s = Number(document.getElementById('ft_seconds').value) || 0;
+        state.totalSeconds = s; state.currentSeconds = s; state.restAfter = Number(document.getElementById('ft_rest').value) || 0;
+        phase.textContent = 'For Time — انطلق'; subphase.textContent = '';
+        totalDisplay.textContent = formatTime(state.totalSeconds);
+        logAdd(بدأ For Time — ${state.totalSeconds}s);
+        playEvent('start'); sendNotification('بدأ For Time','انطلق الآن');
+        tickEverySecond(forTimeTick);
+      } else if (state.mode === 'amrap'){
+        const s = Number(document.getElementById('amrap_seconds').value) || 600;
+        state.totalSeconds = s; state.currentSeconds = s; state.rounds = 0; state.maxRounds = Number(document.getElementById('amrap_maxrounds').value) || 0;
+        phase.textContent = 'AMRAP — ابدأ'; subphase.textContent = '';
+        totalDisplay.textContent = formatTime(state.totalSeconds);
+        logAdd(بدأ AMRAP — ${state.totalSeconds}s);
+        playEvent('start'); sendNotification('بدأ AMRAP', 'بالتوفيق!');
+        tickEverySecond(amrapTick);
+      } else if (state.mode === 'emom'){
+        const minutes = Number(document.getElementById('emom_minutes').value) || 10;
+        const work = Number(document.getElementById('emom_work').value) || 45;
+        state.totalSeconds = minutes*60; state.currentSeconds = state.totalSeconds; state.emomWork = work; state.emomCount = 0;
+        phase.textContent = 'EMOM'; subphase.textContent = work ${work}s/دقيقة;
+        totalDisplay.textContent = formatTime(state.totalSeconds);
+        logAdd(بدأ EMOM — ${minutes} دقائق);
+        playEvent('start'); sendNotification('بدأ EMOM', ${minutes} دقيقة);
+        tickEverySecond(emomTick);
+      } else if (state.mode === 'tabata'){
+        const w = Number(document.getElementById('tabata_work').value) || 20;
+        const r = Number(document.getElementById('tabata_rest').value) || 10;
+        const rounds = Number(document.getElementById('tabata_rounds').value) || 8;
+        state.tabata = {work:w, rest:r, rounds:rounds};
+        state.currentPhase = 'work'; state.currentRound=1; state.currentSeconds=w; state.totalSeconds=(w+r)*rounds;
+        phase.textContent = Tabata — جولة ${state.currentRound}/${rounds}; subphase.textContent='عمل';
+        totalDisplay.textContent = formatTime(state.totalSeconds);
+        logAdd(بدأ Tabata — ${rounds} جولات ${w}s/${r}s);
+        playEvent('start'); sendNotification('بدأ Tabata', جولات ${rounds});
+        tickEverySecond(tabataTick);
+      } else if (state.mode === 'interval'){
+        const w = Number(document.getElementById('int_work').value) || 60;
+        const r = Number(document.getElementById('int_rest').value) || 30;
+        const rounds = Number(document.getElementById('int_rounds').value) || 5;
+        state.interval = {work:w, rest:r, rounds:rounds};
+        state.currentRound=1; state.currentPhase='work'; state.currentSeconds=w; state.totalSeconds=(w+r)*rounds;
+        phase.textContent = جولة ${state.currentRound}/${rounds}; subphase.textContent='عمل';
+        totalDisplay.textContent = formatTime(state.totalSeconds);
+        logAdd(بدأ Interval — ${rounds} جولات);
+        playEvent('start'); sendNotification('بدأ Interval', ${rounds} جولات);
+        tickEverySecond(intervalTick);
+      }
+    });
+
+    stopBtn.addEventListener('click', ()=> stopAll('إيقاف يدوي'));
+
+    resetBtn.addEventListener('click', ()=>{
+      if (state.running) return;
+      state = { ...state, running:false, intervalId:null, mute:state.mute }; // keep mute
+      display.textContent='00:00'; phase.textContent='جاهز'; subphase.textContent=''; totalDisplay.textContent='00:00'; roundDisplay.textContent='0';
+      setProgressFraction(0); logAdd('تمت إعادة المؤقت');
+    });
+
+    lapBtn.addEventListener('click', ()=>{
+      if (!state.running) return;
+      state.rounds = (state.rounds || 0) + 1;
+      roundDisplay.textContent = state.rounds;
+      logAdd('سجلت لاب / جولة — ' + state.rounds);
+      playEvent('round'); sendNotification('جولة مسجلة', جولة ${state.rounds});
+    });
+
+    muteBtn.addEventListener('click', ()=>{
+      state.mute = !state.mute;
+      muteBtn.textContent = state.mute ? 'كتم: نعم' : 'كتم: لا';
+      logAdd('وضع الكتم: ' + (state.mute ? 'نعم' : 'لا'));
+    });
+
+    function stopAll(reason){
+      if (state.intervalId) clearInterval(state.intervalId);
+      state.intervalId = null; state.running=false;
+      startBtn.disabled=false; stopBtn.disabled=true; lapBtn.disabled=true; resetBtn.disabled=false;
+      phase.textContent = reason || 'توقف';
+      playEvent('end'); sendNotification('توقف المؤقت', reason || '');
+      logAdd('توقف — ' + (reason || ''));
+    }
+
+    function tickEverySecond(cb){
+      if (state.intervalId) clearInterval(state.intervalId);
+      state.intervalId = setInterval(()=> cb(), 1000);
+    }
+
+    // ---------- نمط For Time ----------
+    function forTimeTick(){
+      state.currentSeconds -=1;
+      display.textContent = formatTime(state.currentSeconds);
+      const elapsed = state.totalSeconds - state.currentSeconds;
+      setProgressFraction(elapsed / Math.max(1,state.totalSeconds));
+      if (state.currentSeconds <= 0){
+        playEvent('end'); sendNotification('انتهى For Time', 'انتهى التمرين');
+        if (state.restAfter > 0){
+          // rest countdown
+          phase.textContent = 'راحة'; subphase.textContent = '';
+          state.currentSeconds = state.restAfter; state.restAfter = 0;
+          clearInterval(state.intervalId);
+          state.intervalId = setInterval(()=> {
+            state.currentSeconds -=1;
+            display.textContent = formatTime(state.currentSeconds);
+            setProgressFraction(1 - (state.currentSeconds / Math.max(1, state.totalSeconds)));
+            if (state.currentSeconds <= 0){
+              stopAll('انتهت الراحة');
+            }
+          }, 1000);
+        } else {
+          stopAll('انتهى التمرين');
+        }
+      } else if (state.currentSeconds <= 5){
+        // countdown beeps
+        playEvent('tick');
+        phase.textContent = 'قريبًا ينتهي';
+      }
+    }
+
+    // ---------- AMRAP ----------
+    function amrapTick(){
+      state.currentSeconds -=1;
+      display.textContent = formatTime(state.currentSeconds);
+      const elapsed = (Number(totalDisplay.textContent.split(':')[0])*60 + Number(totalDisplay.textContent.split(':')[1])) - state.currentSeconds;
+      setProgressFraction(( (Number(totalDisplay.textContent.split(':')[0])*60 + Number(totalDisplay.textContent.split(':')[1])) - state.currentSeconds) / Math.max(1, (Number(totalDisplay.textContent.split(':')[0])*60 + Number(totalDisplay.textContent.split(':')[1]))));
+      if (state.currentSeconds <= 0){
+        playEvent('end'); sendNotification('انتهى AMRAP', جولات: ${state.rounds});
+        logAdd('انتهى AMRAP — جولات مسجلة: ' + state.rounds);
+        stopAll('انتهى AMRAP');
+      } else if (state.currentSeconds % 60 === 0){
+        playEvent('tick');
+      }
+      if (state.maxRounds > 0 && state.rounds >= state.maxRounds){
+        playEvent('end'); stopAll('وصلت لحد الجولات');
+      }
+    }
+
+    // ---------- EMOM ----------
+    function emomTick(){
+      state.currentSeconds -=1;
+      display.textContent = formatTime(state.currentSeconds);
+      const elapsed = (Number(totalDisplay.textContent.split(':')[0])*60 + Number(totalDisplay.textContent.split(':')[1])) - state.currentSeconds;
+      const minuteIndex = Math.floor(elapsed / 60);
+      const secInMinute = state.currentSeconds % 60;
+      // detect new minute start
+      if (minuteIndex !== state.emomCount){
+        state.emomCount = minuteIndex;
+        playEvent('round');
+        logAdd('بداية الدقيقة ' + (state.emomCount+1));
+        sendNotification('EMOM — بداية دقيقة', الدقيقة ${state.emomCount+1});
+      }
+      // visual progress: fraction of total
+      const total = Number(totalDisplay.textContent.split(':')[0])*60 + Number(totalDisplay.textContent.split(':')[1]);
+      setProgressFraction(1 - (state.currentSeconds / Math.max(1,total)));
+      if (state.currentSeconds <= 0){
+        playEvent('end'); sendNotification('انتهى EMOM', '');
+        stopAll('انتهى EMOM');
+      }
+    }
+
+    // ---------- Tabata ----------
+    function tabataTick(){
+      state.currentSeconds -=1;
+      display.textContent = formatTime(state.currentSeconds);
+      const elapsed = (state.tabata.work + state.tabata.rest)*(state.currentRound - 1) + ( (state.currentPhase==='work') ? (state.tabata.work - state.currentSeconds) : (state.tabata.work + (state.tabata.rest - state.currentSeconds)) );
+      setProgressFraction(elapsed / Math.max(1, state.totalSeconds));
+      if (state.currentSeconds <= 0){
+        playEvent('round');
+        if (state.currentPhase === 'work'){
+          state.currentPhase = 'rest'; state.currentSeconds = state.tabata.rest;
+          phase.textContent = Tabata — جولة ${state.currentRound}/${state.tabata.rounds}; subphase.textContent='راحة';
+          sendNotification('Tabata — راحة', جولة ${state.currentRound});
+        } else {
+          // end of rest -> next round or finish
+          if (state.currentRound >= state.tabata.rounds){
+            playEvent('end'); sendNotification('انتهت Tabata','انتهت جميع الجولات');
+            logAdd('انتهت جميع جولات Tabata');
+            stopAll('انتهت Tabata');
+            return;
+          } else {
+            state.currentRound +=1; state.currentPhase='work'; state.currentSeconds=state.tabata.work;
+            phase.textContent = Tabata — جولة ${state.currentRound}/${state.tabata.rounds}; subphase.textContent='عمل';
+            sendNotification('Tabata — عمل', جولة ${state.currentRound});
+          }
+        }
+      } else {
+        phase.textContent = Tabata — جولة ${state.currentRound}/${state.tabata.rounds}; subphase.textContent = state.currentPhase;
+      }
+      roundDisplay.textContent = state.currentRound;
+    }
+
+    // ---------- Interval ----------
+    function intervalTick(){
+      state.currentSeconds -=1;
+      display.textContent = formatTime(state.currentSeconds);
+      const elapsed = (state.interval.work + state.interval.rest)*(state.currentRound - 1) + ((state.currentPhase==='work')? (state.interval.work - state.currentSeconds) : (state.interval.work + (state.interval.rest - state.currentSeconds)));
+      setProgressFraction(elapsed / Math.max(1, state.totalSeconds));
+      if (state.currentSeconds <= 0){
+        playEvent('round');
+        if (state.currentPhase === 'work'){
+          state.currentPhase = 'rest'; state.currentSeconds = state.interval.rest;
+          phase.textContent = جولة ${state.currentRound}/${state.interval.rounds}; subphase.textContent='راحة';
+          sendNotification('راحة', جولة ${state.currentRound});
+        } else {
+          if (state.currentRound >= state.interval.rounds){
+            playEvent('end'); sendNotification('انتهت الجولات','انتهت جميع جولات Interval');
+            logAdd('انتهت جميع جولات Interval');
+            stopAll('انتهت الجولات');
+            return;
+          } else {
+            state.currentRound +=1; state.currentPhase='work'; state.currentSeconds=state.interval.work;
+            phase.textContent = جولة ${state.currentRound}/${state.interval.rounds}; subphase.textContent='عمل';
+            sendNotification('جولة جديدة', جولة ${state.currentRound});
+          }
+        }
+      } else {
+        phase.textContent = جولة ${state.currentRound}/${state.interval.rounds}; subphase.textContent = state.currentPhase;
+      }
+      roundDisplay.textContent = state.currentRound;
+    }
+
+    // PWA install handling
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'inline-block';
+      logAdd('توفرت إمكانية التثبيت كتطبيق');
+    });
+    installBtn.addEventListener('click', async ()=>{
+      if (deferredPrompt){
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        if (choice.outcome === 'accepted') logAdd('المستخدم قبل تثبيت التطبيق');
+        else logAdd('المستخدم رفض تثبيت التطبيق');
+        deferredPrompt = null;
+      } else {
+        alert('خاصية التثبيت غير متاحة الآن — افتح الموقع من المتصفح المدعوم وحاول مرة أخرى.');
+      }
+    });
+
+    // register service worker for PWA (optional)
+    if ('serviceWorker' in navigator){
+      navigator.serviceWorker.register('sw.js').then(()=> logAdd('Service Worker مسجّل') ).catch(e => logAdd('SW failed: ' + e));
+    }
+
+    // small UX: focus audio on first user interaction
+    document.addEventListener('click', ()=> { try{ ensureAudio(); }catch(e){} }, {once:true});
+
+  </script>
+</body>
+</html>
+{
+  "name": "CrossFit Timer Pro",
+  "short_name": "WOD Timer",
+  "description": "مؤقت CrossFit - For Time, AMRAP, EMOM, Tabata, Interval — PWA-ready",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#071024",
+  "theme_color": "#0b6bf0",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+const CACHE_NAME = 'wod-timer-v1';
+const urlsToCache = [
+  './index.html',
+  './manifest.json',
+  './sw.js'
+  // أضف هنا أيقونات: './icon-192.png','./icon-512.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((response) => response || fetch(event.request))
+  );
+});
